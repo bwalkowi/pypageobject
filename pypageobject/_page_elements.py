@@ -1,5 +1,5 @@
 from enum import Enum
-from itertools import islice
+from time import sleep
 from typing import Optional, Type
 from abc import ABC, abstractmethod
 
@@ -34,7 +34,8 @@ class AbstractPageElement(ABC):
             return self
 
         try:
-            item = instance.find_element(self.selector.value, self.locator)
+            item = instance.web_elem.find_element(self.selector.value,
+                                                  self.locator)
         except NoSuchElementException:
             raise RuntimeError(f'unable to find {self.name} in {instance}')
         else:
@@ -73,8 +74,14 @@ class Input(AbstractPageElement):
             # to try sending them several times
             for _ in range(10):
                 input_box.send_keys(val)
-                assert input_box.get_attribute('value') == val, \
-                    f'entering "{val}" to {self.name} in {instance} failed'
+                if input_box.get_attribute('value') == val:
+                    break
+                else:
+                    input_box.clear()
+                    sleep(0.01)
+            else:
+                raise RuntimeError(f'entering "{val}" to {self.name} '
+                                   f'in {instance} failed')
 
 
 class Element(AbstractPageElement):
@@ -91,7 +98,8 @@ class Element(AbstractPageElement):
         if self.text is None:
             item = super().__get__(instance, owner)
         else:
-            items = instance.find_elements(self.selector.value, self.locator)
+            items = instance.web_elem.find_elements(self.selector.value,
+                                                    self.locator)
             for item in items:
                 if item.text.lower() == self.text.lower():
                     break
@@ -110,38 +118,12 @@ class Elements(Element):
         if instance is None:
             return self
 
-        items = instance.find_elements(self.selector.value, self.locator)
+        items = instance.web_elem.find_elements(self.selector.value,
+                                                self.locator)
         if self.text is not None:
             items = [item for item in items if item.text.lower() == self.text]
 
         if self.cls is not None:
-            return PageObjectsSequence(instance.driver, items, instance, self.cls)
+            return [self.cls(instance.driver, item, instance) for item in items]
         else:
             return items
-
-
-class PageObjectsSequence:
-
-    def __init__(self, driver, items, parent, cls):
-        self.driver = driver
-        self.items = items
-        self.parent = parent
-        self.cls = cls
-
-    def __len__(self):
-        return len(self.items)
-
-    def __getitem__(self, sel):
-        cls = type(self)
-        if isinstance(sel, int):
-            item = self.items[sel] if sel < len(self) else None
-            if item:
-                return self.cls(self.driver, item, self.parent)
-            else:
-                raise IndexError(f'Index out of range. Requested item at '
-                                 f'{sel} while limit is {len(self)} in '
-                                 f'{self.parent}')
-        elif isinstance(sel, slice):
-            return cls(self.driver, self.items[sel], self.parent, self.cls)
-        else:
-            raise TypeError(f'{cls.__name__} must be integers or slices')
