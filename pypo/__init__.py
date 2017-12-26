@@ -1,7 +1,8 @@
-"""Utils for common operations in GUI tests
-"""
+from functools import partial
+from ._page_objects import (PageObject, Button as ButtonPageObject,
+                            NamedButton as NamedButtonPageObject)
+from ._page_elements import (AbstractPageElement, Element, Label, Input)
 
-__author__ = "Bartosz Walkowicz"
-__copyright__ = "Copyright (C) 2017 ACK CYFRONET AGH"
-__license__ = "This software is released under the MIT license cited in " \
-              "LICENSE.txt"
+
+Button = partial(Element, cls=ButtonPageObject)
+NamedButton = partial(Element, cls=NamedButtonPageObject)
